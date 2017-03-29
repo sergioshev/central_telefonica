@@ -1,0 +1,91 @@
+#!/bin/bash
+# $Id: hicom_reader.template,v 1.3 2012-02-24 20:52:14 sshevtsov Exp $ 
+#
+# Scritp para parar y arrancar el lector de la central hicom300
+#
+### BEGIN INIT INFO
+# Provides:          Arranque del lector serie de la central
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
+# Default-Start:     1 2 3 4 5
+# Default-Stop:      0 6
+# Short-Description: Arranque del lector serie de la central
+### END INIT INFO
+
+pidfile="<%%PIDFILENAME%%>"
+daemonpy="<%%DAEMON%%>"
+
+function isRunning()
+{  
+  if [ -r "$pidfile" ] ; then 
+    running_line=$(ps ax | grep $(cat $pidfile) | grep $daemonpy | grep -v grep)
+  else 
+    running_line=''
+  fi
+  if [ "${running_line}X" == "X" ] ; then 
+    running_line=$(ps ax | grep $daemonpy | grep -v grep)
+  fi
+  if [ "${running_line}X" == "X" ] ; then
+    running=1
+  else
+    running=0
+  fi
+  return $running
+}
+
+case $1 in
+  start)
+    isRunning 
+    res=$?
+    if [ $res -eq 0 ] ; then
+      echo "$daemonpy ir running with pid=$(cat $pidfile)"
+      exit 0
+    else
+      echo "Starting $daemonpy."
+      echo "<%%PYTHON%%> <%%WORKDIR%%>/$daemonpy"
+      <%%PYTHON%%> "<%%WORKDIR%%>/$daemonpy"
+      sleep 3
+      isRunning
+      res=$?
+      [ $res -eq 0 ] && echo ok || { echo failed ; exit 1 ; }
+    fi
+   ;;
+   stop)
+     isRunning
+     res=$?
+     if [ $res -eq 1 ] ; then
+       echo "$daemonpy ir not running."
+     else
+       echo "Stopping the daemon."
+       kill $(cat $pidfile)
+       sleep 1
+       isRunning
+       res=$?
+       if [ $res -eq 0 ] ; then
+         echo "Trying to stop."
+         for i in seq 1 3 ; do
+            kill $(cat $pidfile)
+            sleep 2
+            isRunning
+            res=$?
+            [ $res -eq 1 ] && {
+              rm -f $pidfile
+              echo ok.
+              exit 0
+            }
+         done
+         echo "Failed to kill."
+         exit 1
+       else
+         echo ok
+         exit 0
+       fi
+     fi
+   ;;
+   restart)
+     $0 stop && $0 start
+   ;;
+   *) 
+     echo "$0 start | stop | restart"
+   ;;
+esac

@@ -1,0 +1,4 @@
+# $Id: parser_crontab.template,v 1.1 2012-03-02 15:14:03 aosorio Exp $
+
+# Parseo del log.
+0   0  * * * root ( <%%USER_BIN_DIR%%>/logParser )

@@ -1,0 +1,7 @@
+$Id: README,v 1.1 2012-02-04 19:09:23 sshevtsov Exp $
+
+En este directorio se alamacenara todo el software relacionado a la
+central telefonica hicom300.
+
+El demonio que levanta los datos del puerto serie, el parser del log, asi como
+el generador del informe.

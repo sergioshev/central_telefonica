@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# $Id: logParser.template,v 1.5 2012-03-20 17:26:42 sshevtsov Exp $
+##
+# Parser del archivo de log generado por reader_hicom300.py. Copia los datos
+# parseados a la base de datos.
+#
+
+generarcopy="<%%USER_BIN_DIR%%>/generarCopy"
+tmpfile=$( mktemp '/tmp/XXXXXX' )
+conf=<%%PARSER_CONFIG_DIR%%>/<%%PARSER_CONFIG_FILE%%>
+
+. $conf
+
+function help
+# {{{
+{
+  cat <<FFAA
+
+Modo de uso:
+
+  $0 [OPCIONES]
+
+OPCIONES
+
+  [-r|--no-restart]	No reiniciar el demonio.
+  [-h|--help]		Muestra esta ayuda y termina.
+  [-c|--copy]		Sólo generar comandos de COPY sin ingresarlos a la
+			base de datos.
+
+FFAA
+}
+# }}}
+
+temp="$( getopt -o rhc --long no-restart,help,copy -n $0 -- $@ )"
+
+eval set -- "$temp"
+
+while true ; do
+  case "$1" in
+    -r|--no-restart) RESTART=false ; shift ;;
+    -h|--help) help ; exit 0 ;;
+    -c|--copy) COPY=true ; shift ;;
+    --) shift ; break ;;
+    *) echo -e "$1Error de parámetros\n" ; help ; exit 1 ;;
+  esac
+done
+
+## Copia del log
+$RESTART && $READER stop > /dev/null
+
+newlogfile="$LOGFILE-$( date +%F-%T )"
+mv "$LOGFILE" "$newlogfile"
+
+$RESTART && $READER start > /dev/null
+> <%%LOGFILENAME%%>
+
+cat $newlogfile | sed 's/^INFO \(.[^|]\+\)|\s*[0-9\/\]\{8\}\s\+[0-9:]\{8\}\s\+\([0-9:]\{8\}\)\s\+\([0-9]\{3\}\).*\s\+\([0-9]\+\)/\1;\2;\3;\4/g' | sed 's/,/./g' | \
+  sed "s/\;[[:space:]]*$/;<null>/g" >> $tmpfile.aux
+
+IFS=';'
+
+{ 
+  echo "registro_de_llamada;1"
+  echo "fecha_de_llamada;duracion;interno_de_origen;numero_marcado;estado_numero"
+
+  cat $tmpfile.aux | while read fecha interno duracion telefono ; do 
+    estado=$(<%%PYTHON%%> <%%WORKDIR%%>/getLocation.py --num $telefono)
+    echo "$fecha;$interno;$duracion;$telefono;$estado"
+  done 
+} | $generarcopy >> $tmpfile
+
+$COPY && { cat $tmpfile ; rm -f $tmpfile ; exit 0 ; }
+
+{
+  echo "SET search_path=$DBSCHEMA ;"
+  cat $tmpfile
+} | psql $DBNAME -U $DBUSER
+
+#rm -f "$tmpfile*"
+

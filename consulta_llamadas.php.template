@@ -1,0 +1,264 @@
+<?php
+
+/**
+ * $Id: consulta_llamadas.php.template,v 1.5 2012-04-17 19:30:40 aosorio Exp $
+ **
+ * Consulta del registro de llamadas.
+ */
+
+echo <<<FFAA
+<html>
+<head>
+  <link rel="stylesheet" type="text/css" href="style.css" />
+</head>
+<body>
+<h1 align="center"><u>Registro de llamadas</u></h1>
+FFAA;
+
+$logParser = '<%%USER_BIN_DIR%%>/logParser' ;
+$db = pg_connect( "dbname=<%%DBNAME%%> user=<%%DBUSER%%>" ) ;
+$cond = '' ;
+$sql_query = "SELECT * FROM central_telefonica.registro_de_llamada " ;
+
+if( ! empty( $_POST ) ) {
+  $interno = &$_POST['interno_de_origen'] ;
+  $ano = &$_POST['ano'] ;
+  $mes = &$_POST['mes'] ;
+  $duracion = &$_POST['duracion'] ;
+  $field = &$_POST['field'] ;
+  $order = &$_POST['order'] ;
+}
+
+$ano = empty( $ano ) ? date( 'Y' ) : $ano ;
+$mes = empty( $mes ) ? date( 'n' ) : $mes ;
+
+add_sql_cond( $cond, $interno, 'interno_de_origen' ) ;
+add_sql_cond( $cond, $ano, 'extract( year FROM fecha_de_llamada )' ) ;
+add_sql_cond( $cond, $mes, 'extract( month FROM fecha_de_llamada )' ) ;
+add_sql_cond( $cond, $duracion, 'duracion', '>=', TRUE ) ;
+
+if (! empty ( $_POST )) {
+  $sql_query .= "$cond ORDER BY $field $order ;" ;
+} else {
+  $sql_query .= "$cond ;";
+}
+
+echo generar_formulario() ;
+
+if( ! empty( $ano ) && ! empty( $mes ) ) {
+  echo generar_tabla( pg_query( $db, $sql_query ) ) ;
+} else {
+  echo "Ano y mes vacio" ;
+
+  echo '<p align="center"><b>Seleccione a&ntilde;o y mes</b></p>' ;
+}
+
+echo <<<FFAA
+</body>
+</html>
+FFAA;
+
+function generar_tabla( $sql_resource )
+//{{{
+{
+  if( ! is_resource( $sql_resource ) ) return FALSE ;
+
+  $tabla = '' ;
+
+  $db = pg_fetch_all( $sql_resource ) ;
+
+  if( empty( $db ) )
+    return "<p align='center'><b>Consulta vac&iacute;a</b></p>" ;
+
+  // Comienzo de la tabla.
+  $tabla .= '<table id="table"><tr>' ;
+
+  // Genero los nombres de columnas.
+  foreach( $db[0] as $key => $value )
+    $tabla .= "<th>$key</th>" ;
+
+  // Genero las filas de datos.
+  $i = 0 ;
+  foreach( $db as $registro ) {
+    if( $i%2 ) {
+      $tabla .= '<tr>' ;
+    } else {
+      $tabla .= '<tr class="alt">' ;
+    }
+    $i++ ;
+
+    foreach( $registro as $campo )
+      $tabla .= "<td>$campo</td>" ;
+
+    $tabla .= '</tr>' ;
+  }
+
+  $registros = pg_numrows( $sql_resource ) ;
+
+  switch( $registros ) {
+    case 0:
+      $registros = 'Sin registros' ;
+    break ;
+    case 1:
+      $registros .= ' registro' ;
+    break ;
+    default:
+      $registros .= ' registros' ;
+    break ;
+  }
+
+  $tabla .= "</tr></table><br>" ;
+
+  return "<h2 align='center'>$registros</h2>$tabla" ;
+}
+//}}}
+
+function generar_formulario()
+//{{{
+{
+  $campos = array(
+    'fecha_de_llamada' => 'fecha_de_llamada',
+    'duracion' => 'duracion',
+    'interno_de_origen' => 'interno_de_origen',
+    'numero_marcado' => 'numero_marcado'
+  ) ;
+
+  $orden = array(
+    'ASC' => 'ASC',
+    'DESC' => 'DESC'
+  ) ;
+
+  if( ! empty( $_POST ) ) {
+    $interno = $_POST['interno_de_origen'] ;
+    $ano = $_POST['ano'] ;
+    $mes = $_POST['mes'] ;
+    $duracion = $_POST['duracion'] ;
+    $field = empty( $_POST['field'] ) ? NULL : $campos[$_POST['field']] ;
+    $order = empty( $_POST['order'] ) ? NULL : $orden[$_POST['order']] ;
+  } else {
+    $ano = date( 'Y' ) ;
+    $mes = date( 'm' ) ;
+  }
+
+  if( empty( $field ) ) {
+    $field = $campos['fecha_de_llamada'] ;
+    $order = $orden['DESC'] ;
+  }
+
+  $campo_interno = generar_combo( 'interno_de_origen', $interno ) ;
+  $campo_ano_query = <<<FFAA
+SELECT extract( 'year' FROM fecha_de_llamada ) as ano
+  FROM central_telefonica.registro_de_llamada
+  GROUP BY extract( 'year' FROM fecha_de_llamada )
+  ORDER BY extract( 'year' FROM fecha_de_llamada ) ;
+FFAA;
+  $campo_mes_query = <<<FFAA
+SELECT extract( 'month' FROM fecha_de_llamada ) as mes
+  FROM central_telefonica.registro_de_llamada
+  GROUP BY extract( 'month' FROM fecha_de_llamada )
+  ORDER BY extract( 'month' FROM fecha_de_llamada ) ;
+FFAA;
+
+  $campo_ano = generar_combo( "ano", $ano, $campo_ano_query ) ;
+  $campo_mes = generar_combo( "mes", $mes, $campo_mes_query ) ;
+
+  $form = <<<FFAA
+  <table border=1 align='center'>
+    <tr>
+    <td>
+      <form align="center" method="POST">
+      <p>
+        <b>A&ntilde;o:</b>$campo_ano
+        <b>Mes:</b>$campo_mes
+      </p>
+    </tr>
+    <tr>
+    <td>
+      <b>Interno:</b>$campo_interno
+      <b>Duraci&oacute;n mayor a:</b><input name='duracion' type='text'
+                                      value='$duracion' size=10 maxlength=10>
+      Ejemplo='10m 2s'.
+      <p>
+        <b>Ordenado por:</b><select name='field'>
+FFAA;
+
+  foreach( $campos as $key => $value ) {
+    if( $key != $field ) $form .= "<option value='$key'>$value</option>" ;
+  }
+
+  $form .= "<option selected='$field'>$field</option>" ;
+  $form .= "</select><select name='order' value='$order'>" ;
+
+  foreach( $orden as $key => $value ) {
+    if( $key != $order ) $form .= "<option value='$key'>$value</option>" ;
+  }
+
+  $form .= <<<FFAA
+           <option selected="$order">$order</option>
+         </select>
+       </p>
+     </td>
+     </tr>
+   </table>
+   <p align="center"><input type="submit" value="Aceptar"></p>
+ </form>
+FFAA;
+
+  return $form ;
+}
+//}}}
+
+function add_sql_cond( &$conditions,
+                       $value,
+                       $field,
+                       $comparation = '=',
+                       $quotes = FALSE )
+//{{{
+{
+  if( empty( $value ) ) return $conditions ;
+
+  $conditions .= empty( $conditions ) ? " WHERE " : " AND " ;
+
+  $conditions .= $quotes
+                 ? "$field $comparation '$value'"
+                 : "$field $comparation $value" ;
+
+  return $conditions ;
+}
+//}}}
+
+function generar_combo( $campo,
+                        $default,
+                        $query = NULL,
+                        $blank = TRUE )
+//{{{
+{
+  if( empty( $query ) ) {
+    $query = <<<FFAA
+SELECT $campo
+  FROM central_telefonica.registro_de_llamada
+  GROUP BY $campo
+  ORDER BY $campo ;
+FFAA;
+  }
+
+  $combo = "<select name='$campo'>" ;
+
+  $db = pg_connect( "dbname=<%%DBNAME%%> user=<%%DBUSER%%>" ) ;
+  $datos = pg_fetch_all( pg_query( $db, $query ) ) ;
+
+  foreach( $datos as $key => $value ) {
+    if( $value[$campo] != $default && ! empty( $value[$campo] ) )
+      $combo .= "<option value='{$value[$campo]}'>{$value[$campo]}</option>" ;
+  }
+
+  $combo .= "<option selected='$default'>$default</option></select>" ;
+
+  if( $blank && ! empty( $default ) )
+    $combo .= "<option value=''></option>" ;
+
+  return $combo ;
+}
+//}}}
+
+?>

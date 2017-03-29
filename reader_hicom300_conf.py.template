@@ -1,0 +1,7 @@
+# $Id: reader_hicom300_conf.py.template,v 1.1 2012-02-14 16:28:46 sshevtsov Exp $
+#
+#  Aca van todas las configuraciones del lector de la central
+#
+logFileName = "<%%LOGFILENAME%%>"
+pidFileName = "<%%PIDFILENAME%%>"
+workDir = "<%%WORKDIR%%>"

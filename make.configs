@@ -1,0 +1,15 @@
+LOGFILENAME = /var/log/hicom300.log
+PIDFILENAME = /var/run/hicom300.pid
+WORKDIR = /usr/local/hicom300
+PYTHON = /usr/bin/python
+DAEMON = reader_hicom300.py
+READER = /etc/init.d/hicom_reader
+RESTART = true
+COPY = false
+DBNAME = central_telefonica
+DBUSER = central
+DBSCHEMA = central_telefonica
+PARSER_CONFIG_DIR = /etc/central_telefonica
+PARSER_CONFIG_FILE = parser.conf
+APACHE_DIR = /var/www
+USER_BIN_DIR = /usr/local/bin

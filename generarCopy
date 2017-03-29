@@ -1,0 +1,39 @@
+#!/bin/bash
+#
+# $Id: generarCopy,v 1.1 2012-02-17 18:37:37 aosorio Exp $
+# Importa la tabla ingresada por standard input.
+#
+# El formato de la tabla debe ser el siguiente:
+#
+# <Nombre Tabla>[;<nro campos de la clave>]
+# <Id_Columnai 1>;<Id_Columna 2>;...;<Id_Columna n>
+# <dato 1 1>;<dato 1 2>;...;<dato 1 n>
+# <dato 2 1>;<dato 2 2>;...;<dato 2 n>
+# .
+# .
+# .
+# <dato m 1>;<dato m 2>;...;<dato m n>
+#
+# El archivo no debe tener líneas vacías y debe tener por lo menos 
+# dos líneas para estar sintácticamente correcto.
+#
+# <nro campos de la clave> es opcional. De todas formas es ignorado
+# para los inserts.
+
+SEPARADOR=';'
+NULL_STRING="<null>"
+
+IFS="$SEPARADOR"
+read tabla camposClave
+read -a campos
+
+IFS=","
+cat <<FFAA
+COPY $tabla(${campos[*]}) 
+  FROM STDIN
+  WITH DELIMITER AS '$SEPARADOR'
+  NULL AS '$NULL_STRING' ;
+FFAA
+
+cat
+echo "\."
